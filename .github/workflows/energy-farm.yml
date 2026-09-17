@@ -8,6 +8,7 @@ jobs:
   energy-agents:
     strategy:
       fail-fast: false
+      max-parallel: 20
       matrix:
         role:
           - ENERGY_SYSTEMS_ARCHITECT
@@ -31,25 +32,58 @@ jobs:
           - RED_TEAM
           - SYNTHESIZER_JUDGE
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      - name: Run role
+          python-version: '3.12'
+      - run: pip install --quiet hf-gradio
+      - name: Run real adaptive external inference
         run: python workers/energy_worker.py "${{ matrix.role }}" "Analyze energy systems. Separate data/model/simulation/test/operations; quantify assumptions, efficiency, reliability, safety, cost, materials and grid constraints."
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: energy-${{ matrix.role }}
           path: results/${{ matrix.role }}.json
+          retention-days: 14
+
   omega-fusion:
     needs: energy-agents
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          echo '{"farm":"14-energy","status":"ROLE_JOBS_COMPLETED_OR_ATTEMPTED","claim":"Job success is not proof of scientific validity or independent intelligence."}' > omega.json
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: energy-*
+          path: results
+          merge-multiple: true
+      - name: Build evidence accounting packet
+        run: |
+          python - <<'PY'
+          import json,glob
+          rows=[]
+          for f in glob.glob('results/*.json'):
+              try:
+                  x=json.load(open(f,encoding='utf-8'))
+                  if 'role' in x: rows.append(x)
+              except Exception: pass
+          ok=[x for x in rows if x.get('inference_success')]
+          packet={
+              'farm':'14-energy',
+              'roles_returned':len(rows),
+              'successful_external_ai_calls':len(ok),
+              'failed_external_ai_calls':len(rows)-len(ok),
+              'successful_roles':sorted(x.get('role') for x in ok),
+              'models':sorted({x.get('model') for x in ok}),
+              'epistemic_status':'UNREVIEWED_EXTERNAL_AGENT_OUTPUT',
+              'claim':'Job success alone is not evidence of model inference; only nonempty verified worker outputs are counted.'
+          }
+          open('energy-omega.json','w',encoding='utf-8').write(json.dumps(packet,ensure_ascii=False,indent=2))
+          print(json.dumps(packet))
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: energy-omega-packet
-          path: omega.json
+          path: energy-omega.json
+          retention-days: 14
