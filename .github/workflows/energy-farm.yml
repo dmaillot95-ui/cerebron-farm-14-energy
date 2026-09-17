@@ -1,0 +1,55 @@
+name: CEREBRON Farm 14 Energy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  energy-agents:
+    strategy:
+      fail-fast: false
+      matrix:
+        role:
+          - ENERGY_SYSTEMS_ARCHITECT
+          - POWER_GENERATION_SPECIALIST
+          - GRID_SPECIALIST
+          - ENERGY_STORAGE_SPECIALIST
+          - SOLAR_SPECIALIST
+          - WIND_SPECIALIST
+          - HYDRO_SPECIALIST
+          - GEOTHERMAL_SPECIALIST
+          - NUCLEAR_SPECIALIST
+          - HYDROGEN_SPECIALIST
+          - FUELS_SPECIALIST
+          - THERMAL_SYSTEMS_SPECIALIST
+          - EFFICIENCY_SPECIALIST
+          - POWER_ELECTRONICS_SPECIALIST
+          - ENERGY_ECONOMICS_SPECIALIST
+          - SAFETY_SPECIALIST
+          - RESILIENCE_SPECIALIST
+          - LIFECYCLE_MATERIALS_SPECIALIST
+          - RED_TEAM
+          - SYNTHESIZER_JUDGE
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run role
+        run: python workers/energy_worker.py "${{ matrix.role }}" "Analyze energy systems. Separate data/model/simulation/test/operations; quantify assumptions, efficiency, reliability, safety, cost, materials and grid constraints."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: energy-${{ matrix.role }}
+          path: results/${{ matrix.role }}.json
+  omega-fusion:
+    needs: energy-agents
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo '{"farm":"14-energy","status":"ROLE_JOBS_COMPLETED_OR_ATTEMPTED","claim":"Job success is not proof of scientific validity or independent intelligence."}' > omega.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: energy-omega-packet
+          path: omega.json
